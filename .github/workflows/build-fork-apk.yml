@@ -24,11 +24,30 @@ jobs:
 
       - name: Build Debug APK
         run: |
+          keytool -genkeypair -v \
+            -keystore debug-temp.keystore \
+            -storepass android \
+            -alias androiddebugkey \
+            -keypass android \
+            -keyalg RSA -keysize 2048 -validity 10000 \
+            -dname "CN=Android Debug,O=Android,C=US"
+
+          cat << 'EOF' > keystore.properties
+          signingConfig.storeFile=debug-temp.keystore
+          signingConfig.storePassword=android
+          signingConfig.keyAlias=androiddebugkey
+          signingConfig.keyPassword=android
+          EOF
+
           chmod +x gradlew
-          ./gradlew assembleDebug
+          ./gradlew assembleGithubDebug --stacktrace
+
+          rm -f keystore.properties debug-temp.keystore
 
       - name: Upload APK
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: Fork-APK
           path: app/build/outputs/**/*.apk
+          if-no-files-found: ignore

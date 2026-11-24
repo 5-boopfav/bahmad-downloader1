@@ -1,4 +1,4 @@
-name: Android CI
+name: Build Fork APK
 
 on:
   workflow_dispatch:
@@ -22,8 +22,10 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v3
 
-      - name: Prepare temporary keystore.properties
+      - name: Build Custom APK
         run: |
+          sed -i 's/PluginManagement/pluginManagement/g' settings.gradle
+
           keytool -genkeypair -v \
             -keystore debug-temp.keystore \
             -storepass android \
@@ -39,14 +41,10 @@ jobs:
           signingConfig.keyPassword=android
           EOF
 
-      - name: Build GitHub Release APK
-        run: |
           chmod +x gradlew
-          ./gradlew assembleGithubRelease --stacktrace
+          ./gradlew assembleGithubDebug --stacktrace
 
-      - name: Cleanup temporary keystore
-        if: always()
-        run: rm -f keystore.properties debug-temp.keystore
+          rm -f keystore.properties debug-temp.keystore
 
       - name: Upload APK
         if: always()

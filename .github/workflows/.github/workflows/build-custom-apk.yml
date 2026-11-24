@@ -1,4 +1,4 @@
-name: Build Bahmad-downloader1 APK
+name: Build Fork APK
 
 on:
   workflow_dispatch:
@@ -22,13 +22,34 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v3
 
-      - name: Build Debug APK (GitHub Flavor)
+      - name: Build GitHub Debug APK
         run: |
+          sed -i 's/^PluginManagement {/pluginManagement {/' settings.gradle
+
+          keytool -genkeypair -v \
+            -keystore debug-temp.keystore \
+            -storepass android \
+            -alias androiddebugkey \
+            -keypass android \
+            -keyalg RSA -keysize 2048 -validity 10000 \
+            -dname "CN=Android Debug,O=Android,C=US"
+
+          cat << 'EOF' > keystore.properties
+          signingConfig.storeFile=debug-temp.keystore
+          signingConfig.storePassword=android
+          signingConfig.keyAlias=androiddebugkey
+          signingConfig.keyPassword=android
+          EOF
+
           chmod +x gradlew
-          ./gradlew assembleGithubDebug
+          ./gradlew assembleGithubDebug --stacktrace
+
+          rm -f keystore.properties debug-temp.keystore
 
       - name: Upload APK
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: Bahmad-downloader1-APK
-          path: app/build/outputs/apk/github/debug/*.apk
+          name: Fork-APK
+          path: app/build/outputs/**/*.apk
+          if-no-files-found: ignore

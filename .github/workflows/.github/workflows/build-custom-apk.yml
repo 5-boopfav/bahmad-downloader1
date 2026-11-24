@@ -1,9 +1,9 @@
-name: Android CI
+name: Build Fork APK
 
 on:
   workflow_dispatch:
   push:
-    branches: [ main, master ]
+    branches: [ main, master, 5-boopfav ]
 
 jobs:
   build:
@@ -22,11 +22,19 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v3
 
-      - name: Prepare temporary environment and keystore
+      - name: Root fix for settings.gradle and keystore.properties
         run: |
-          if [ -f settings.gradle ]; then
-            sed -i 's/^[[:space:]]*[Pp]lugin[Mm]anagement[[:space:]]*{/pluginManagement {/' settings.gradle
-          fi
+          python3 - << 'EOF'
+          from pathlib import Path
+
+          settings_path = Path("settings.gradle")
+          if settings_path.exists():
+              content = settings_path.read_text(encoding="utf-8")
+              fixed = content.replace("PluginManagement", "pluginManagement", 1)
+              if fixed != content:
+                  settings_path.write_text(fixed, encoding="utf-8")
+                  print("Patched PluginManagement -> pluginManagement in runtime workspace.")
+          EOF
 
           keytool -genkeypair -v \
             -keystore debug-temp.keystore \
@@ -43,10 +51,10 @@ jobs:
           signingConfig.keyPassword=android
           EOF
 
-      - name: Build GitHub Release APK
+      - name: Build APK
         run: |
           chmod +x gradlew
-          ./gradlew assembleGithubRelease --stacktrace
+          ./gradlew :app:assembleGithubDebug --stacktrace
 
       - name: Cleanup temporary files
         if: always()

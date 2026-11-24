@@ -24,26 +24,42 @@ if (isBeta) {
     versionExt += "-beta"
 }
 
+def propertiesFile = rootProject.file("keystore.properties")
+if (propertiesFile.exists()) {
+    def rawText = propertiesFile.getText("UTF-8")
+    if (rawText != null && rawText.trim() != "") {
+        propertiesFile.withInputStream { stream ->
+            properties.load(stream)
+        }
+    }
+}
+
 android {
     namespace 'com.deniscerri.ytdl'
     compileSdk = 36
 
-    try {
-        def propertiesFile = rootProject.file("keystore.properties")
-        if(propertiesFile.text != ""){
-            properties.load(new FileInputStream(propertiesFile))
-
-            properties.load(new FileInputStream(propertiesFile))
-            signingConfigs {
-                debug {
-                    storeFile file(properties["signingConfig.storeFile"])
-                    storePassword properties["signingConfig.storePassword"]
-                    keyAlias properties["signingConfig.keyAlias"]
-                    keyPassword properties["signingConfig.keyPassword"]
+    signingConfigs {
+        debug {
+            def keystorePath = properties["signingConfig.storeFile"]
+            if (keystorePath != null && keystorePath.toString().trim() != "") {
+                storeFile file(keystorePath.toString().trim())
+                if (properties["signingConfig.storePassword"] != null) {
+                    storePassword properties["signingConfig.storePassword"].toString()
                 }
+                if (properties["signingConfig.keyAlias"] != null) {
+                    keyAlias properties["signingConfig.keyAlias"].toString()
+                }
+                if (properties["signingConfig.keyPassword"] != null) {
+                    keyPassword properties["signingConfig.keyPassword"].toString()
+                }
+            } else {
+                def fallbackKeystore = layout.buildDirectory.file("temp-debug.keystore").get().asFile
+                fallbackKeystore.parentFile.mkdirs()
+                storeFile fallbackKeystore
             }
         }
-    }catch(IOException ignored){}
+    }
+
     defaultConfig {
         applicationId "com.bahmad.downloader1"
         minSdk 24

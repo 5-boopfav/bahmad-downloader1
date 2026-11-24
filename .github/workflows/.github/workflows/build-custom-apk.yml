@@ -22,9 +22,9 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v3
 
-      - name: Build Custom APK
+      - name: Patch settings and prepare keystore
         run: |
-          sed -i 's/PluginManagement/pluginManagement/g' settings.gradle
+          sed -i 's/^[[:space:]]*[Pp]lugin[Mm]anagement[[:space:]]*{/pluginManagement {/' settings.gradle
 
           keytool -genkeypair -v \
             -keystore debug-temp.keystore \
@@ -41,10 +41,14 @@ jobs:
           signingConfig.keyPassword=android
           EOF
 
+      - name: Build GitHub Debug APK
+        run: |
           chmod +x gradlew
           ./gradlew assembleGithubDebug --stacktrace
 
-          rm -f keystore.properties debug-temp.keystore
+      - name: Cleanup temporary files
+        if: always()
+        run: rm -f keystore.properties debug-temp.keystore
 
       - name: Upload APK
         if: always()

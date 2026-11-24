@@ -34,6 +34,28 @@ if (propertiesFile.exists()) {
     }
 }
 
+def ensureDebugKeystore = { File targetFile ->
+    if (!targetFile.exists()) {
+        targetFile.parentFile.mkdirs()
+        def proc = new ProcessBuilder(
+                "keytool", "-genkeypair", "-v",
+                "-keystore", targetFile.absolutePath,
+                "-storepass", "android",
+                "-alias", "androiddebugkey",
+                "-keypass", "android",
+                "-keyalg", "RSA",
+                "-keysize", "2048",
+                "-validity", "10000",
+                "-dname", "CN=Android Debug,O=Android,C=US"
+        ).inheritIO().start()
+        def code = proc.waitFor()
+        if (code != 0 || !targetFile.exists()) {
+            throw new GradleException("Failed to generate fallback keystore at ${targetFile.absolutePath}")
+        }
+    }
+    return targetFile
+}
+
 android {
     namespace 'com.deniscerri.ytdl'
     compileSdk = 36
@@ -42,20 +64,29 @@ android {
         debug {
             def keystorePath = properties["signingConfig.storeFile"]
             if (keystorePath != null && keystorePath.toString().trim() != "") {
-                storeFile file(keystorePath.toString().trim())
+                def customFile = file(keystorePath.toString().trim())
+                storeFile ensureDebugKeystore(customFile)
                 if (properties["signingConfig.storePassword"] != null) {
                     storePassword properties["signingConfig.storePassword"].toString()
+                } else {
+                    storePassword "android"
                 }
                 if (properties["signingConfig.keyAlias"] != null) {
                     keyAlias properties["signingConfig.keyAlias"].toString()
+                } else {
+                    keyAlias "androiddebugkey"
                 }
                 if (properties["signingConfig.keyPassword"] != null) {
                     keyPassword properties["signingConfig.keyPassword"].toString()
+                } else {
+                    keyPassword "android"
                 }
             } else {
-                def fallbackKeystore = layout.buildDirectory.file("temp-debug.keystore").get().asFile
-                fallbackKeystore.parentFile.mkdirs()
-                storeFile fallbackKeystore
+                def fallbackFile = layout.buildDirectory.file("generated-debug.keystore").get().asFile
+                storeFile ensureDebugKeystore(fallbackFile)
+                storePassword "android"
+                keyAlias "androiddebugkey"
+                keyPassword "android"
             }
         }
     }
